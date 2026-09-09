@@ -23,6 +23,7 @@ public:
 	bool outgoing = false;
 	bool received = false;
 	bool read = false;
+	bool failed = false;
 
 	Type getType() const;
 	std::string getText() const;
