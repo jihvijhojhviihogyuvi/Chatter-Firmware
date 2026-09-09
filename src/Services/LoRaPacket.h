@@ -37,6 +37,7 @@ struct MessagePacket : Packet {
 		TEXT, PIC, ACK, READ
 	} type;
 	UID_t uid;
+	uint32_t timestamp;
 
 	virtual size_t pack(void** destination) const override;
 	static MessagePacket* unpack(void* buffer);
