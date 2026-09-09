@@ -9,7 +9,7 @@ class ConvoMessage : public LVObject{
 public:
 	ConvoMessage(lv_obj_t* parent, const Message& msg, uint16_t bgColor);
 	virtual ~ConvoMessage();
-	void setDeliveryStatus(bool delivered, bool read);
+	void setDeliveryStatus(bool delivered, bool read, bool failed);
 	void setHue(uint16_t hue);
 
 	const Message& getMsg() const;
@@ -20,6 +20,7 @@ private:
 	lv_style_t focusedStyle;
 	lv_obj_t* deliveredIndicator;
 	lv_obj_t* readIndicator;
+	lv_obj_t* failedIndicator;
 	lv_obj_t* label;
 
 	Message msg;
