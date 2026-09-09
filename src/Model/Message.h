@@ -24,6 +24,7 @@ public:
 	bool received = false;
 	bool read = false;
 	bool failed = false;
+	uint32_t timestamp = 0;
 
 	Type getType() const;
 	std::string getText() const;
