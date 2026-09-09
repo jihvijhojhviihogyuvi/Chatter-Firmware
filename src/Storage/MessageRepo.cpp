@@ -3,7 +3,7 @@
 bool MessageRepo::write(File& file, const Message& object){
 	Message::Type type = object.getType();
 
-	size_t size = sizeof(object.uid) + sizeof(object.convo) + sizeof(object.outgoing) + sizeof(object.received) + sizeof(object.read) + sizeof(object.failed) + sizeof(type);
+	size_t size = sizeof(object.uid) + sizeof(object.convo) + sizeof(object.outgoing) + sizeof(object.received) + sizeof(object.read) + sizeof(object.failed) + sizeof(type) + sizeof(object.timestamp);
 	size_t totalWritten = 0;
 	totalWritten += file.write(reinterpret_cast<const uint8_t*>(&object.uid), sizeof(object.uid));
 	totalWritten += file.write(reinterpret_cast<const uint8_t*>(&object.convo), sizeof(object.convo));
@@ -24,6 +24,9 @@ bool MessageRepo::write(File& file, const Message& object){
 		size += sizeof(index);
 		totalWritten += file.write(reinterpret_cast<const uint8_t*>(&index), sizeof(index));
 	}
+
+	// Append the timestamp so existing records remain readable.
+	totalWritten += file.write(reinterpret_cast<const uint8_t*>(&object.timestamp), sizeof(object.timestamp));
 
 	return size == totalWritten;
 }
@@ -61,6 +64,14 @@ bool MessageRepo::read(File& file, Message& object){
 		totalRead += file.read(reinterpret_cast<uint8_t*>(&index), sizeof(index));
 
 		object.setPic(index);
+	}
+
+	// New records have a timestamp appended after the payload. Old records do not.
+	if(file.available() >= static_cast<int>(sizeof(object.timestamp))){
+		totalRead += file.read(reinterpret_cast<uint8_t*>(&object.timestamp), sizeof(object.timestamp));
+		size += sizeof(object.timestamp);
+	}else{
+		object.timestamp = 0;
 	}
 
 	return size == totalRead;
