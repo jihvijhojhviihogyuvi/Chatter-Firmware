@@ -37,10 +37,15 @@ struct MessagePacket : Packet {
 		TEXT, PIC, ACK, READ
 	} type;
 	UID_t uid;
-	uint32_t timestamp;
+	uint32_t timestamp = 0;
 
 	virtual size_t pack(void** destination) const override;
 	static MessagePacket* unpack(void* buffer);
+};
+
+template<typename T>
+struct TimestampedMessagePacket : MessagePacket {
+	T payload;
 };
 
 struct TextMessage : MessagePacket {
