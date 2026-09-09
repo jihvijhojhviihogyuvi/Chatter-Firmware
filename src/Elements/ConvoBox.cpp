@@ -61,6 +61,9 @@ void ConvoBox::stop(){
 }
 
 void ConvoBox::load(){
+	// Mark existing incoming messages as read before loading the view so the
+	// freshly-created message elements contain the updated read state.
+	Messages.markRead(convo);
 	convoView.loadLatest();
 	lv_obj_scroll_by(obj, 0, lv_obj_get_height(obj), LV_ANIM_OFF);
 	fillMessages();
