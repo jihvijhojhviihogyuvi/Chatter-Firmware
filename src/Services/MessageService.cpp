@@ -3,8 +3,15 @@
 #include "LoRaService.h"
 #include "../Storage/Storage.h"
 #include <Settings.h>
+#include <time.h>
 
 MessageService Messages;
+
+static uint32_t currentMessageTimestamp(){
+	time_t now = time(nullptr);
+	if(now >= 100000) return static_cast<uint32_t>(now);
+	return static_cast<uint32_t>(millis() / 1000);
+}
 
 MessageService::MessageService(){
 	WithListeners<MsgChangedListener>::reserve(8);
@@ -57,6 +64,7 @@ Message MessageService::sendMessage(UID_t uid, Message& message){
 	Convo convo = Storage.Convos.get(uid);
 	message.convo = uid;
 	message.failed = false;
+	message.timestamp = currentMessageTimestamp();
 
 	do {
 		message.uid = LoRa.randUID();
@@ -115,6 +123,7 @@ bool MessageService::sendPacket(UID_t receiver, const Message& message){
 	}
 
 	packet->uid = message.uid;
+	packet->timestamp = message.timestamp;
 	LoRa.send(receiver, LoRaPacket::MSG, packet);
 
 	delete packet;
@@ -228,6 +237,7 @@ void MessageService::processRetries(uint micros){
 void MessageService::receiveMessage(ReceivedPacket<MessagePacket>& packet){
 	Message message;
 	message.uid = packet.content->uid;
+	message.timestamp = packet.content->timestamp;
 	message.outgoing = false;
 	message.convo = packet.sender;
 
@@ -297,7 +307,6 @@ void MessageService::receiveMessage(ReceivedPacket<MessagePacket>& packet){
 	MessagePacket ack;
 	ack.type = MessagePacket::ACK;
 	ack.uid = message.uid;
-
 	LoRa.send(packet.sender, LoRaPacket::Type::MSG, &ack);
 	Settings.get().messagesReceived++;
 	Settings.store();
@@ -340,14 +349,11 @@ void MessageService::receiveRead(ReceivedPacket<MessagePacket>& packet){
 	if(msg.uid == 0 || !msg.outgoing || msg.convo != sender || msg.read) return;
 
 	msg.read = true;
-	if(!Storage.Messages.update(msg)){
-		printf("Message READ update failed\n");
-		return;
+	if(Storage.Messages.update(msg)){
+		WithListeners<MsgChangedListener>::iterateListeners([&msg](MsgChangedListener* listener){
+			listener->msgChanged(msg);
+		});
 	}
-
-	WithListeners<MsgChangedListener>::iterateListeners([&msg](MsgChangedListener* listener){
-		listener->msgChanged(msg);
-	});
 }
 
 void MessageService::addReceivedListener(MsgReceivedListener* listener){
@@ -401,6 +407,7 @@ bool MessageService::markRead(UID_t convoUID){
 		MessagePacket read;
 		read.type = MessagePacket::READ;
 		read.uid = msg.uid;
+		read.timestamp = 0;
 		LoRa.send(convoUID, LoRaPacket::Type::MSG, &read);
 
 		if(!msg.read){
@@ -436,22 +443,13 @@ bool MessageService::markUnread(UID_t convoUID){
 }
 
 void MessageService::notifyUnread(){
-	bool hasUnread = false;
-
+	unread = false;
 	for(UID_t uid : Storage.Convos.all()){
 		Convo convo = Storage.Convos.get(uid);
-		if(convo.uid == 0) continue;
-
-		if(convo.unread){
-			hasUnread = true;
-			break;
-		}
+		unread |= convo.unread;
 	}
 
-	if(hasUnread == unread) return;
-	unread = hasUnread;
-
-	WithListeners<UnreadListener>::iterateListeners([hasUnread](UnreadListener* listener){
-		listener->onUnread(hasUnread);
+	WithListeners<UnreadListener>::iterateListeners([this](UnreadListener* listener){
+		listener->onUnread(unread);
 	});
 }
