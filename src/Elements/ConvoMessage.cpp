@@ -6,6 +6,7 @@
 ConvoMessage::ConvoMessage(lv_obj_t* parent, const Message& msg, uint16_t bgColor) : LVObject(parent), msg(msg){
 	bool outgoing = msg.outgoing;
 	bool delivered = msg.received;
+	bool read = msg.read;
 
 	lv_obj_set_layout(obj, LV_LAYOUT_FLEX);
 	lv_obj_set_flex_flow(obj, LV_FLEX_FLOW_ROW);
@@ -34,6 +35,15 @@ ConvoMessage::ConvoMessage(lv_obj_t* parent, const Message& msg, uint16_t bgColo
 		lv_obj_set_style_border_opa(deliveredIndicator, LV_OPA_100, 0);
 		lv_obj_set_style_border_color(deliveredIndicator, lv_color_hsv_to_rgb(bgColor, 70, 90), 0);
 		lv_obj_set_style_border_width(deliveredIndicator, 2, 0);
+
+		readIndicator = lv_obj_create(obj);
+		lv_obj_set_size(readIndicator, 7, 7);
+		lv_obj_set_style_radius(readIndicator, LV_RADIUS_CIRCLE, 0);
+		lv_obj_set_style_bg_opa(readIndicator, read ? LV_OPA_100 : LV_OPA_0, 0);
+		lv_obj_set_style_bg_color(readIndicator, lv_color_hsv_to_rgb(bgColor, 70, 90), 0);
+		lv_obj_set_style_border_opa(readIndicator, LV_OPA_100, 0);
+		lv_obj_set_style_border_color(readIndicator, lv_color_hsv_to_rgb(bgColor, 70, 90), 0);
+		lv_obj_set_style_border_width(readIndicator, 2, 0);
 	}
 
 	lv_obj_set_height(label, LV_SIZE_CONTENT);
@@ -68,11 +78,13 @@ ConvoMessage::ConvoMessage(lv_obj_t* parent, const Message& msg, uint16_t bgColo
 	}, LV_EVENT_DEFOCUSED, this);
 }
 
-void ConvoMessage::setDelivered(bool delivered){
+void ConvoMessage::setDeliveryStatus(bool delivered, bool read){
 	if(!msg.outgoing) return;
 
 	msg.received = delivered;
+	msg.read = read;
 	lv_obj_set_style_bg_opa(deliveredIndicator, delivered ? LV_OPA_100 : LV_OPA_0, 0);
+	lv_obj_set_style_bg_opa(readIndicator, read ? LV_OPA_100 : LV_OPA_0, 0);
 	lv_obj_invalidate(obj);
 }
 
@@ -89,6 +101,8 @@ void ConvoMessage::setHue(uint16_t hue){
 	if(msg.outgoing){
 		lv_obj_set_style_bg_color(deliveredIndicator, lv_color_hsv_to_rgb(hue, 70, 90), 0);
 		lv_obj_set_style_border_color(deliveredIndicator, lv_color_hsv_to_rgb(hue, 70, 90), 0);
+		lv_obj_set_style_bg_color(readIndicator, lv_color_hsv_to_rgb(hue, 70, 90), 0);
+		lv_obj_set_style_border_color(readIndicator, lv_color_hsv_to_rgb(hue, 70, 90), 0);
 	}
 	lv_style_set_text_color(&defaultStyle, msg.outgoing ? lv_color_hsv_to_rgb(hue, 70, 90) : lv_color_white());
 	lv_style_set_bg_color(&defaultStyle, msg.outgoing ? lv_color_hsv_to_rgb(0, 0, 100) : lv_color_hsv_to_rgb(hue, 60, 85));
