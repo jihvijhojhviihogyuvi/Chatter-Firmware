@@ -269,6 +269,7 @@ void MessageService::receiveMessage(ReceivedPacket<MessagePacket>& packet){
 		MessagePacket ack;
 		ack.type = MessagePacket::ACK;
 		ack.uid = message.uid;
+		ack.timestamp = 0;
 		LoRa.send(packet.sender, LoRaPacket::Type::MSG, &ack);
 		return;
 	}
@@ -307,6 +308,7 @@ void MessageService::receiveMessage(ReceivedPacket<MessagePacket>& packet){
 	MessagePacket ack;
 	ack.type = MessagePacket::ACK;
 	ack.uid = message.uid;
+	ack.timestamp = 0;
 	LoRa.send(packet.sender, LoRaPacket::Type::MSG, &ack);
 	Settings.get().messagesReceived++;
 	Settings.store();
