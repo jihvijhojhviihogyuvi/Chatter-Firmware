@@ -40,6 +40,7 @@ public:
 	void removeUnreadListener(UnreadListener* listener);
 
 	bool hasUnread() const;
+	uint16_t getUnreadCount(UID_t convoUID) const;
 
 	bool markRead(UID_t convoUID);
 	bool markUnread(UID_t convoUID);
@@ -47,8 +48,18 @@ public:
 	bool deleteFriend(UID_t uid);
 
 private:
+	struct PendingMessage {
+		UID_t convo;
+		uint32_t elapsed = 0;
+		uint8_t retries = 0;
+	};
+
+	static constexpr uint32_t RETRY_INTERVAL = 3000000;
+	static constexpr uint8_t MAX_RETRIES = 3;
+
 	Message sendMessage(UID_t convo, Message& message);
 	bool sendPacket(UID_t receiver, const Message& message);
+	void processRetries(uint micros);
 
 	void receiveMessage(ReceivedPacket<MessagePacket>& packet);
 	void receiveAck(ReceivedPacket<MessagePacket>& packet);
@@ -57,6 +68,7 @@ private:
 	void notifyUnread();
 
 	std::unordered_map<UID_t, Message> lastMessages;
+	std::unordered_map<UID_t, PendingMessage> pendingMessages;
 
 	bool unread = false;
 
