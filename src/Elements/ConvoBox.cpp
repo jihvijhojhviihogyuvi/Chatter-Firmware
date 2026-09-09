@@ -61,8 +61,6 @@ void ConvoBox::stop(){
 }
 
 void ConvoBox::load(){
-	// Mark existing incoming messages as read before loading the view so the
-	// freshly-created message elements contain the updated read state.
 	Messages.markRead(convo);
 	convoView.loadLatest();
 	lv_obj_scroll_by(obj, 0, lv_obj_get_height(obj), LV_ANIM_OFF);
@@ -154,7 +152,7 @@ void ConvoBox::checkScroll(){
 	const bool nearTop = objIndex <= 0;
 	const bool nearBot = objIndex >= msgElements.size() - 1;
 	const bool topStop = start == 0;
-	const bool botStop = convoView.isLatest(); // start + ConvoView::Count >= messageView.getTotalMessageCount();
+	const bool botStop = convoView.isLatest();
 	if((!nearTop || topStop) && (!nearBot || botStop)) return;
 
 	int16_t fromTop = lv_obj_get_y(focusedEl) - lv_obj_get_scroll_y(obj);
@@ -286,7 +284,7 @@ void ConvoBox::msgChanged(const Message& msg){
 
 	for(auto el : msgElements){
 		if(el->getMsg().uid == msg.uid){
-			el->setDeliveryStatus(msg.received, msg.read);
+			el->setDeliveryStatus(msg.received, msg.read, msg.failed);
 			break;
 		}
 	}
