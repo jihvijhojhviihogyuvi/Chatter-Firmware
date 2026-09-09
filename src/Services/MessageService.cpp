@@ -152,6 +152,8 @@ void MessageService::loop(uint micros){
 
 	if(packet.content->type == MessagePacket::ACK){
 		receiveAck(packet);
+	}else if(packet.content->type == MessagePacket::READ){
+		receiveRead(packet);
 	}else{
 		receiveMessage(packet);
 	}
@@ -172,6 +174,7 @@ void MessageService::receiveMessage(ReceivedPacket<MessagePacket>& packet){
 		message.setPic(pic->index);
 		delete pic;
 	}else{
+		delete packet.content;
 		return;
 	}
 
@@ -187,7 +190,6 @@ void MessageService::receiveMessage(ReceivedPacket<MessagePacket>& packet){
 			return;
 		}
 
-		// Message is already received, resend ACK packet
 		MessagePacket ack;
 		ack.type = MessagePacket::ACK;
 		ack.uid = message.uid;
@@ -253,6 +255,25 @@ void MessageService::receiveAck(ReceivedPacket<MessagePacket>& packet){
 	});
 }
 
+void MessageService::receiveRead(ReceivedPacket<MessagePacket>& packet){
+	UID_t uid = packet.content->uid;
+	UID_t sender = packet.sender;
+	delete packet.content;
+
+	Message msg = Storage.Messages.get(uid);
+	if(msg.uid == 0 || !msg.outgoing || msg.convo != sender || msg.read) return;
+
+	msg.read = true;
+	if(!Storage.Messages.update(msg)){
+		printf("Message READ update failed\n");
+		return;
+	}
+
+	WithListeners<MsgChangedListener>::iterateListeners([&msg](MsgChangedListener* listener){
+		listener->msgChanged(msg);
+	});
+}
+
 void MessageService::addReceivedListener(MsgReceivedListener* listener){
 	WithListeners<MsgReceivedListener>::addListener(listener);
 }
@@ -284,6 +305,25 @@ bool MessageService::hasUnread() const{
 bool MessageService::markRead(UID_t convoUID){
 	Convo convo = Storage.Convos.get(convoUID);
 	if(convo.uid == 0) return false;
+
+	for(UID_t msgUID : convo.messages){
+		Message msg = Storage.Messages.get(msgUID);
+		if(msg.uid == 0 || msg.outgoing) continue;
+
+		MessagePacket read;
+		read.type = MessagePacket::READ;
+		read.uid = msg.uid;
+		LoRa.send(convoUID, LoRaPacket::Type::MSG, &read);
+
+		if(!msg.read){
+			msg.read = true;
+			if(Storage.Messages.update(msg)){
+				WithListeners<MsgChangedListener>::iterateListeners([&msg](MsgChangedListener* listener){
+					listener->msgChanged(msg);
+				});
+			}
+		}
+	}
 
 	if(!convo.unread) return true;
 

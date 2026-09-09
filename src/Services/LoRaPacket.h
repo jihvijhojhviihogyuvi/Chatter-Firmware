@@ -34,7 +34,7 @@ struct Packet {
 
 struct MessagePacket : Packet {
 	enum Type : uint8_t {
-		TEXT, PIC, ACK
+		TEXT, PIC, ACK, READ
 	} type;
 	UID_t uid;
 

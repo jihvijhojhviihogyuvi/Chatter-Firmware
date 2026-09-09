@@ -17,9 +17,9 @@ MessagePacket* MessagePacket::unpack(void* _buffer){
 	MessagePacket* packet;
 	Type type = *reinterpret_cast<Type*>(buffer);
 
-	if(type == ACK){
+	if(type == ACK || type == READ){
 		packet = new MessagePacket;
-		packet->type = ACK;
+		packet->type = type;
 	}else if(type == TEXT){
 		packet = TextMessage::unpack(buffer + sizeof(type) + sizeof(uid));
 	}else if(type == PIC){
