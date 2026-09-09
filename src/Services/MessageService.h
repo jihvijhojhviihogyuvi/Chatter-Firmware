@@ -52,6 +52,7 @@ private:
 
 	void receiveMessage(ReceivedPacket<MessagePacket>& packet);
 	void receiveAck(ReceivedPacket<MessagePacket>& packet);
+	void receiveRead(ReceivedPacket<MessagePacket>& packet);
 
 	void notifyUnread();
 
