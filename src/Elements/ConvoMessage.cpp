@@ -1,7 +1,29 @@
 #include "ConvoMessage.h"
 #include <Arduino.h>
+#include <time.h>
 #include "../Fonts/font.h"
 #include "../Interface/Pics.h"
+
+static void setTimestampText(lv_obj_t* label, uint32_t timestamp){
+	if(timestamp == 0){
+		lv_label_set_text(label, "");
+		return;
+	}
+
+	char buffer[12];
+	if(timestamp >= 100000){
+		time_t raw = static_cast<time_t>(timestamp);
+		struct tm timeInfo;
+		localtime_r(&raw, &timeInfo);
+		strftime(buffer, sizeof(buffer), "%H:%M", &timeInfo);
+	}else{
+		uint32_t totalMinutes = timestamp / 60;
+		uint32_t hours = totalMinutes / 60;
+		uint32_t minutes = totalMinutes % 60;
+		snprintf(buffer, sizeof(buffer), "+%02lu:%02lu", static_cast<unsigned long>(hours), static_cast<unsigned long>(minutes));
+	}
+	lv_label_set_text(label, buffer);
+}
 
 ConvoMessage::ConvoMessage(lv_obj_t* parent, const Message& msg, uint16_t bgColor) : LVObject(parent), msg(msg){
 	bool outgoing = msg.outgoing;
@@ -26,6 +48,11 @@ ConvoMessage::ConvoMessage(lv_obj_t* parent, const Message& msg, uint16_t bgColo
 		Pic pic = Pics[msg.getPic()];
 		label = pic.create(obj);
 	}
+
+	timestampLabel = lv_label_create(obj);
+	lv_obj_set_style_text_font(timestampLabel, &pixelbasic7, 0);
+	lv_obj_set_style_text_opa(timestampLabel, LV_OPA_70, 0);
+	setTimestampText(timestampLabel, msg.timestamp);
 
 	if(outgoing){
 		lv_color_t statusColor = lv_color_hsv_to_rgb(bgColor, 70, 90);
@@ -78,7 +105,6 @@ ConvoMessage::ConvoMessage(lv_obj_t* parent, const Message& msg, uint16_t bgColo
 	lv_obj_add_style(label, &defaultStyle, LV_STATE_DEFAULT | LV_PART_MAIN);
 	lv_obj_add_style(label, &focusedStyle, LV_STATE_FOCUSED | LV_PART_MAIN);
 
-	//focus forwarding to label child
 	lv_obj_add_event_cb(obj, [](lv_event_t* event){
 		auto* msg = static_cast<ConvoMessage*>(event->user_data);
 		lv_obj_add_state(msg->label, LV_STATE_FOCUSED);
