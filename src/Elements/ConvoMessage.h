@@ -18,10 +18,11 @@ public:
 private:
 	lv_style_t defaultStyle;
 	lv_style_t focusedStyle;
-	lv_obj_t* deliveredIndicator;
-	lv_obj_t* readIndicator;
-	lv_obj_t* failedIndicator;
-	lv_obj_t* label;
+	lv_obj_t* deliveredIndicator = nullptr;
+	lv_obj_t* readIndicator = nullptr;
+	lv_obj_t* failedIndicator = nullptr;
+	lv_obj_t* label = nullptr;
+	lv_obj_t* timestampLabel = nullptr;
 
 	Message msg;
 };
