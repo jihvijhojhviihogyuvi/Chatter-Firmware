@@ -12,7 +12,7 @@ Message::Message(uint8_t picIndex) {
 	setPic(picIndex);
 }
 
-Message::Message(const Message& other) : uid(other.uid), convo(other.convo), outgoing(other.outgoing), received(other.received), read(other.read){
+Message::Message(const Message& other) : uid(other.uid), convo(other.convo), outgoing(other.outgoing), received(other.received), read(other.read), failed(other.failed){
 	clear();
 
 	if(other.type == TEXT){
@@ -32,6 +32,7 @@ Message& Message::operator=(const Message& other){
 	outgoing = other.outgoing;
 	received = other.received;
 	read = other.read;
+	failed = other.failed;
 
 	clear();
 
