@@ -283,7 +283,7 @@ void ConvoBox::msgChanged(const Message& msg){
 
 	for(auto el : msgElements){
 		if(el->getMsg().uid == msg.uid){
-			el->setDelivered(msg.received);
+			el->setDeliveryStatus(msg.received, msg.read);
 			break;
 		}
 	}
