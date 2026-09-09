@@ -16,6 +16,7 @@ void MessageService::begin(){
 	LoopManager::addListener(this);
 
 	unread = false;
+	pendingMessages.clear();
 
 	for(UID_t uid: Storage.Convos.all()){
 		Convo convo = Storage.Convos.get(uid);
@@ -27,6 +28,14 @@ void MessageService::begin(){
 		if(msg.uid == 0) continue;
 
 		lastMessages.insert(std::make_pair(uid, msg));
+
+		if(msg.outgoing && !msg.received && !msg.failed){
+			for(UID_t msgUID : convo.messages){
+				Message pending = Storage.Messages.get(msgUID);
+				if(pending.uid == 0 || !pending.outgoing || pending.received || pending.failed) continue;
+				pendingMessages[pending.uid] = {pending.convo, 0, 0};
+			}
+		}
 	}
 }
 
@@ -47,6 +56,7 @@ Message MessageService::sendMessage(UID_t uid, Message& message){
 
 	Convo convo = Storage.Convos.get(uid);
 	message.convo = uid;
+	message.failed = false;
 
 	do {
 		message.uid = LoRa.randUID();
@@ -68,6 +78,7 @@ Message MessageService::sendMessage(UID_t uid, Message& message){
 	}
 
 	lastMessages[convo.uid] = message;
+	pendingMessages[message.uid] = {uid, 0, 0};
 	Settings.get().messagesSent++;
 	Settings.store();
 	return message;
@@ -77,10 +88,18 @@ Message MessageService::resend(UID_t convo, UID_t message){
 	if(!Storage.Convos.exists(convo)) return { };
 
 	Message msg = Storage.Messages.get(message);
-	if(msg.uid == 0) return { };
-	if(msg.received || !msg.outgoing) return { };
+	if(msg.uid == 0 || !msg.outgoing || msg.convo != convo || msg.received) return { };
 
+	msg.failed = false;
+	if(!Storage.Messages.update(msg)) return { };
+
+	pendingMessages[msg.uid] = {convo, 0, 0};
 	sendPacket(convo, msg);
+
+	WithListeners<MsgChangedListener>::iterateListeners([&msg](MsgChangedListener* listener){
+		listener->msgChanged(msg);
+	});
+
 	return msg;
 }
 
@@ -114,6 +133,7 @@ bool MessageService::deleteMessage(UID_t convoUID, UID_t msgUID){
 	convo.messages.erase(pos);
 	if(!Storage.Convos.update(convo)) return false;
 
+	pendingMessages.erase(msgUID);
 	if(!Storage.Messages.remove(msgUID)) return false;
 
 	if(last){
@@ -141,6 +161,12 @@ bool MessageService::deleteFriend(UID_t uid){
 	if(!Storage.Friends.remove(uid)) return false;
 	if(!Storage.Convos.remove(uid)) return false;
 	lastMessages.erase(uid);
+
+	for(auto it = pendingMessages.begin(); it != pendingMessages.end();){
+		if(it->second.convo == uid) it = pendingMessages.erase(it);
+		else ++it;
+	}
+
 	notifyUnread();
 	return true;
 }
@@ -148,14 +174,54 @@ bool MessageService::deleteFriend(UID_t uid){
 void MessageService::loop(uint micros){
 	ReceivedPacket<MessagePacket> packet = LoRa.getMessage();
 
-	if(!packet.content || !Storage.Friends.exists(packet.sender)) return;
+	if(packet.content && Storage.Friends.exists(packet.sender)){
+		if(packet.content->type == MessagePacket::ACK){
+			receiveAck(packet);
+		}else if(packet.content->type == MessagePacket::READ){
+			receiveRead(packet);
+		}else{
+			receiveMessage(packet);
+		}
+	}
 
-	if(packet.content->type == MessagePacket::ACK){
-		receiveAck(packet);
-	}else if(packet.content->type == MessagePacket::READ){
-		receiveRead(packet);
-	}else{
-		receiveMessage(packet);
+	processRetries(micros);
+}
+
+void MessageService::processRetries(uint micros){
+	for(auto it = pendingMessages.begin(); it != pendingMessages.end();){
+		PendingMessage& pending = it->second;
+		pending.elapsed += micros;
+
+		Message msg = Storage.Messages.get(it->first);
+		if(msg.uid == 0 || !msg.outgoing || msg.received || msg.failed){
+			it = pendingMessages.erase(it);
+			continue;
+		}
+
+		if(pending.elapsed < RETRY_INTERVAL){
+			++it;
+			continue;
+		}
+
+		pending.elapsed = 0;
+
+		if(pending.retries >= MAX_RETRIES){
+			msg.failed = true;
+			if(Storage.Messages.update(msg)){
+				WithListeners<MsgChangedListener>::iterateListeners([&msg](MsgChangedListener* listener){
+					listener->msgChanged(msg);
+				});
+			}
+			it = pendingMessages.erase(it);
+			continue;
+		}
+
+		if(sendPacket(pending.convo, msg)){
+			pending.retries++;
+		}else{
+			pending.retries = MAX_RETRIES;
+		}
+		++it;
 	}
 }
 
@@ -240,14 +306,24 @@ void MessageService::receiveMessage(ReceivedPacket<MessagePacket>& packet){
 
 void MessageService::receiveAck(ReceivedPacket<MessagePacket>& packet){
 	UID_t uid = packet.content->uid;
+	UID_t sender = packet.sender;
 	delete packet.content;
 
 	Message msg = Storage.Messages.get(uid);
-	if(msg.uid == 0) return;
+	if(msg.uid == 0 || !msg.outgoing || msg.convo != sender) return;
+
+	if(msg.received && !msg.failed){
+		pendingMessages.erase(uid);
+		return;
+	}
 
 	msg.received = true;
+	msg.failed = false;
+	pendingMessages.erase(uid);
+
 	if(!Storage.Messages.update(msg)){
 		printf("Message ACK update failed\n");
+		return;
 	}
 
 	WithListeners<MsgChangedListener>::iterateListeners([&msg](MsgChangedListener* listener){
@@ -300,6 +376,18 @@ void MessageService::removeUnreadListener(UnreadListener* listener){
 
 bool MessageService::hasUnread() const{
 	return unread;
+}
+
+uint16_t MessageService::getUnreadCount(UID_t convoUID) const{
+	Convo convo = Storage.Convos.get(convoUID);
+	if(convo.uid == 0) return 0;
+
+	uint16_t count = 0;
+	for(UID_t msgUID : convo.messages){
+		Message msg = Storage.Messages.get(msgUID);
+		if(msg.uid != 0 && !msg.outgoing && !msg.read) count++;
+	}
+	return count;
 }
 
 bool MessageService::markRead(UID_t convoUID){
