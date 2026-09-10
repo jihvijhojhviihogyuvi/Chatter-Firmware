@@ -36,7 +36,7 @@
     ["esp:27", "display:SCK", "green", ["h0"]],
     ["esp:26", "display:MOSI", "blue", ["h0"]],
     ["esp:33", "display:D/C", "purple", ["h0"]],
-    ["esp:GND.1", "display:CS", "orange", ["h0"]],
+    ["esp:15", "display:CS", "orange", ["h0"]],
     ["esp:3V3", "display:LED", "yellow", ["h0"]],
     ["esp:3V3", "button:1.l", "red", ["h0"]],
     ["esp:0", "button:2.l", "green", ["h0"]],
