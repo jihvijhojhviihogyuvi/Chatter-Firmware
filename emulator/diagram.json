@@ -11,13 +11,12 @@
       "attrs": {}
     },
     {
-      "type": "wokwi-st7735",
+      "type": "wokwi-ili9341",
       "id": "display",
       "top": -90,
       "left": 220,
       "attrs": {
-        "width": "128",
-        "height": "160"
+        "swapXY": "1"
       }
     },
     {
@@ -34,11 +33,11 @@
   "connections": [
     ["esp:3V3", "display:VCC", "red", ["h0"]],
     ["esp:GND.1", "display:GND", "black", ["h0"]],
-    ["esp:27", "display:SCL", "green", ["h0"]],
-    ["esp:26", "display:SDA", "blue", ["h0"]],
-    ["esp:33", "display:DC", "purple", ["h0"]],
+    ["esp:27", "display:SCK", "green", ["h0"]],
+    ["esp:26", "display:MOSI", "blue", ["h0"]],
+    ["esp:33", "display:D/C", "purple", ["h0"]],
     ["esp:15", "display:CS", "orange", ["h0"]],
-    ["esp:13", "display:RES", "yellow", ["h0"]],
+    ["esp:3V3", "display:LED", "yellow", ["h0"]],
     ["esp:3V3", "button:1.l", "red", ["h0"]],
     ["esp:0", "button:2.l", "green", ["h0"]],
     ["esp:GND.2", "button:1.r", "black", ["h0"]]
