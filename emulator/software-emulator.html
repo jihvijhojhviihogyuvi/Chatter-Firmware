@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chatter Software Emulator</title>
+<style>
+:root { color-scheme: dark; --bg:#111820; --panel:#1a2630; --line:#324653; --cyan:#7ee8d2; --text:#e7f0ed; --muted:#8ca3a3; --orange:#ffb454; }
+* { box-sizing:border-box; }
+body { margin:0; min-height:100vh; background:radial-gradient(circle at 15% 0%, #233b42 0, transparent 40%), var(--bg); color:var(--text); font:15px ui-sans-serif, system-ui, sans-serif; }
+main { max-width:1120px; margin:0 auto; padding:34px 22px; }
+h1 { margin:0 0 8px; font-size:clamp(26px, 4vw, 42px); letter-spacing:.02em; }
+.lead { color:var(--muted); margin:0 0 26px; }
+.layout { display:grid; grid-template-columns:minmax(300px, 420px) 1fr; gap:22px; align-items:start; }
+.panel { background:rgba(26,38,48,.9); border:1px solid var(--line); border-radius:8px; padding:18px; box-shadow:0 16px 45px #0004; }
+.panel h2 { font-size:16px; margin:0 0 14px; color:var(--cyan); }
+.drop { border:1px dashed #66818a; border-radius:7px; padding:22px 16px; text-align:center; color:var(--muted); }
+input[type=file] { width:100%; margin-top:12px; }
+.device-wrap { display:grid; place-items:center; min-height:430px; background:#0d141a; border:1px solid var(--line); border-radius:8px; }
+.device { width:300px; background:#202a2d; border:9px solid #0a0e10; border-radius:22px; padding:16px 18px 24px; box-shadow:0 16px 32px #0008; }
+.brand { color:#8da9a0; font-weight:700; letter-spacing:.18em; font-size:11px; margin-bottom:12px; }
+.screen { width:100%; aspect-ratio:160/128; background:#071817; border:6px solid #101718; image-rendering:pixelated; padding:12px; color:#b4ffe7; font-family:monospace; overflow:hidden; }
+.screen .top { display:flex; justify-content:space-between; border-bottom:1px solid #387569; padding-bottom:6px; margin-bottom:10px; }
+.screen .title { color:#fff09c; font-size:18px; margin:8px 0; }
+.screen .msg { color:#d8fff5; margin:7px 0; overflow-wrap:anywhere; }
+.screen .hint { color:#68a99a; font-size:11px; margin-top:18px; }
+.controls { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-top:18px; }
+button { border:1px solid #536d72; background:#2a4148; color:var(--text); border-radius:5px; padding:10px 8px; cursor:pointer; }
+button:hover { border-color:var(--cyan); color:var(--cyan); }
+.status { color:var(--orange); font-family:monospace; font-size:13px; margin-top:14px; overflow-wrap:anywhere; }
+label { display:block; color:var(--muted); margin:16px 0 6px; }
+input[type=range] { width:100%; accent-color:var(--cyan); }
+.message-row { display:flex; gap:8px; }
+.message-row input { min-width:0; flex:1; background:#101a20; border:1px solid var(--line); border-radius:5px; color:var(--text); padding:10px; }
+.log { height:190px; overflow:auto; background:#0d141a; border:1px solid var(--line); border-radius:5px; padding:12px; color:#9bd8ca; font:12px/1.65 ui-monospace, monospace; white-space:pre-wrap; }
+.note { color:var(--muted); font-size:12px; line-height:1.5; margin-top:14px; }
+@media (max-width:760px) { main{padding:24px 14px}.layout{grid-template-columns:1fr}.device{width:min(300px,88vw)} }
+</style>
+</head>
+<body>
+<main>
+<h1>Chatter software emulator</h1>
+<p class="lead">Load a firmware image, exercise the device controls, and inspect simulated behavior.</p>
+<div class="layout">
+<section class="panel">
+<h2>Firmware image</h2>
+<div class="drop">Choose any compatible <b>.elf</b> or <b>.bin</b> build<input id="file" type="file" accept=".elf,.bin"></div>
+<div id="status" class="status">No firmware loaded</div>
+<label for="battery">Battery</label><input id="battery" type="range" min="0" max="100" value="84"><div id="batteryValue" class="status">84%</div>
+<h2 style="margin-top:24px">Inject message</h2>
+<div class="message-row"><input id="message" placeholder="Hello from emulator"><button id="send">Send</button></div>
+<p class="note">This emulator models the Chatter UI and device events. It does not execute Xtensa machine code, so it is safe for testing message flows and edits without hardware.</p>
+</section>
+<section class="panel">
+<h2>Virtual Chatter</h2>
+<div class="device-wrap"><div class="device"><div class="brand">CHATTER // LAB</div><div id="screen" class="screen"></div><div class="controls"><button data-button="UP">Up</button><button data-button="A">A / Enter</button><button data-button="DOWN">Down</button><button data-button="BACK">Back</button><button data-button="B">B</button><button data-button="RIGHT">Right</button></div></div></div>
+<h2 style="margin-top:20px">Serial monitor</h2><div id="log" class="log"></div>
+</section>
+</div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let state = {screen:'boot', battery:84, serial:[], messages:[], firmware:null};
+function draw(s=state) {
+ state=s; const messages=s.messages||[];
+ const lines = messages.length ? messages.slice(-3).map(m => `<div class="msg">&gt; ${escapeHtml(m.text)}</div>`).join('') : '<div class="msg">No messages yet</div>';
+ $('screen').innerHTML = `<div class="top"><span>${s.screen === 'messages' ? 'MESSAGES' : 'CHATTER'}</span><span>${s.battery}%</span></div><div class="title">${s.screen === 'messages' ? 'Inbox' : 'Ready'}</div>${s.screen === 'messages' ? lines : '<div class="msg">Secure messaging</div><div class="msg">Device online</div>'}<div class="hint">A: open  B: back</div>`;
+ $('status').textContent = s.firmware ? `${s.firmware} | ${s.format} | ${Number(s.size).toLocaleString()} bytes` : 'No firmware loaded';
+ $('battery').value=s.battery; $('batteryValue').textContent=`${s.battery}%`;
+ $('log').textContent=(s.serial||[]).join('\n'); $('log').scrollTop=$('log').scrollHeight;
+}
+function escapeHtml(v){return String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function post(payload){const r=await fetch('/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); draw(await r.json());}
+$('file').onchange=async e=>{const f=e.target.files[0]; if(!f)return; const b=new Uint8Array(await f.arrayBuffer()); let hex=Array.from(b,x=>x.toString(16).padStart(2,'0')).join(''); await post({action:'load',name:f.name,data:hex});};
+$('battery').oninput=e=>post({action:'battery',value:e.target.value});
+$('send').onclick=()=>{const i=$('message'); post({action:'message',text:i.value}); i.value='';};
+$('message').onkeydown=e=>{if(e.key==='Enter')$('send').click();};
+document.querySelectorAll('[data-button]').forEach(b=>b.onclick=()=>post({action:'button',button:b.dataset.button}));
+fetch('/state').then(r=>r.json()).then(draw); setInterval(()=>fetch('/state').then(r=>r.json()).then(draw),1000);
+</script>
+</body>
+</html>

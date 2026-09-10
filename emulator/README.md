@@ -1,5 +1,15 @@
 # Chatter Firmware Emulator
 
+## Software emulator
+
+For a working local emulator that does not require Wokwi hardware models, run:
+
+```powershell
+.\emulator\start-software-emulator.ps1
+```
+
+It opens a local browser UI where you can load any `.elf` or `.bin` build, use the virtual buttons, change battery level, inject messages, and inspect a serial-style event log. This is a behavioral emulator; it does not execute Xtensa machine code.
+
 This project loads any Chatter firmware ELF into Wokwi. Build a firmware version, then pass its ELF file to the launcher:
 
 ```powershell
