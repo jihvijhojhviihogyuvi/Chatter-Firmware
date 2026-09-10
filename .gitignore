@@ -4,3 +4,4 @@ build
 .vscode
 spiffs.bin
 emulator/firmware.elf
+emulator/wokwi-build/
