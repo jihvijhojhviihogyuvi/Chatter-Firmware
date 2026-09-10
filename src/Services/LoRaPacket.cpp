@@ -131,3 +131,66 @@ size_t RequestPair::pack(void** destination) const{
 	*destination = buffer;
 	return sizeof(encKey);
 }
+
+size_t ProfilePacket::pack(void** destination) const{
+	auto buffer = static_cast<uint8_t*>(malloc(sizeof(type)));
+	memcpy(buffer, &type, sizeof(type));
+	*destination = buffer;
+	return sizeof(type);
+}
+
+ProfilePacket* ProfilePacket::unpack(void* _buffer){
+	auto buffer = static_cast<uint8_t*>(_buffer);
+	Type type = *reinterpret_cast<Type*>(buffer);
+
+	ProfilePacket* packet;
+	if(type == RESP){
+		packet = ProfileResponse::unpack(buffer + sizeof(Type));
+	}else if(type == REQ){
+		packet = new ProfilePacket;
+	}else{
+		return nullptr;
+	}
+
+	packet->type = type;
+	return packet;
+}
+
+ProfileResponse::ProfileResponse(){
+	type = RESP;
+}
+
+ProfileResponse::ProfileResponse(const Profile& prof) : ProfileResponse(){
+	profile = prof;
+}
+
+size_t ProfileResponse::pack(void** destination) const{
+	uint8_t* buffer;
+	size_t size = ProfilePacket::pack(reinterpret_cast<void**>(&buffer));
+
+	buffer = static_cast<uint8_t*>(realloc(buffer, size + sizeof(Profile)));
+	memcpy(buffer + size, &profile, sizeof(Profile));
+
+	*destination = buffer;
+	return size + sizeof(Profile);
+}
+
+ProfileResponse* ProfileResponse::unpack(void* buffer){
+	auto profile = new ProfileResponse;
+	profile->profile = *static_cast<Profile*>(buffer);
+	return profile;
+}
+
+AckPair* AckPair::unpack(void* buffer){
+	auto pairPacket = new AckPair;
+	memcpy(pairPacket->encKey, buffer, sizeof(encKey));
+	return pairPacket;
+}
+
+size_t AckPair::pack(void** destination) const{
+	uint8_t* buffer = static_cast<uint8_t*>(malloc(sizeof(encKey)));
+	memcpy(buffer, &encKey, sizeof(encKey));
+
+	*destination = buffer;
+	return sizeof(encKey);
+}

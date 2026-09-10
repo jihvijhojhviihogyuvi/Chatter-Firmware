@@ -164,7 +164,6 @@ void SleepService::turnOff(){
 
 	digitalWrite(PIN_BL, 1);
 	digitalWrite(PIN_BUZZ, 1);
-	digitalWrite(CALIB_EN, 0);
 
 	LoRa.radio.standby();
 	LoRa.radio.sleep(false);

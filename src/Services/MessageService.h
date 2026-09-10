@@ -40,7 +40,7 @@ public:
 	void removeUnreadListener(UnreadListener* listener);
 
 	bool hasUnread() const;
-	uint16_t getUnreadCount(UID_t convoUID);
+	uint16_t getUnreadCount(UID_t convoUID) const;
 
 	bool markRead(UID_t convoUID);
 	bool markUnread(UID_t convoUID);

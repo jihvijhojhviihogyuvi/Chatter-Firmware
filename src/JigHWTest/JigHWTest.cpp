@@ -9,7 +9,7 @@
 #include <Chatter.h>
 #include <Notes.h>
 #include <Util/HWRevision.h>
-#include <ChatterDisplay.h>
+#include "../ChatterDisplay.h"
 
 JigHWTest *JigHWTest::test = nullptr;
 
@@ -157,49 +157,19 @@ bool JigHWTest::LoRaTest(){
 }
 
 bool JigHWTest::BatteryCheck(){
-	pinMode(BATTERY_PIN, INPUT);
-	pinMode(CALIB_READ, INPUT);
-	pinMode(CALIB_EN, OUTPUT);
+	Battery.begin();
 
-	esp_adc_cal_characteristics_t calChars;
+	test->log("voltage", (uint32_t) Battery.getVoltage());
+	test->log("offset", Battery.getVoltOffset());
 
-	analogSetAttenuation(ADC_2_5db);
-
-	//Newer ESP32's used in HWRevision 1 (Wireless-tag WT32-S1) have calibration in efuse
-	esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_2_5, ADC_WIDTH_BIT_12, 0, &calChars);
-
-	digitalWrite(CALIB_EN, 1);
-	delay(100);
-
-	float sum = 0;
-	for(int i = 0; i < MeasureCount; i++){
-		sum += esp_adc_cal_raw_to_voltage(analogRead(CALIB_READ), &calChars) * Factor;
-	}
-	const uint16_t volt = round(sum / (float) MeasureCount);
-
-	int16_t calibOffset = VoltReference - volt;
-
-	test->log("calib offset", calibOffset);
-
-	digitalWrite(CALIB_EN, 0);
-	delay(100);
-
-	if(abs(calibOffset) > VoltReferenceTolerance){
+	if(abs(Battery.getVoltOffset()) > 100){
+		test->log("offset", Battery.getVoltOffset());
 		return false;
 	}
 
-
-
-
-	sum = 0;
-	for(int i = 0; i < MeasureCount; i++){
-		sum += esp_adc_cal_raw_to_voltage(analogRead(BATTERY_PIN), &calChars) * Factor;
-	}
-	const uint16_t measured = round(sum / (float) MeasureCount);
-
-	test->log("voltage", measured);
-
-	if(measured < USBVoltageMinimum){
+	if(Battery.getVoltage() < 4600){
+		test->log("voltage", (uint32_t) Battery.getVoltage());
+		test->log("offset", Battery.getVoltOffset());
 		return false;
 	}
 
